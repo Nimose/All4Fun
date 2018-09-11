@@ -1,0 +1,136 @@
+﻿@using TeaCommerce.Umbraco.Configuration.Variants.Models
+@using TeaCommerce.Umbraco.Web
+@using Umbraco.Core.Models
+@using Umbraco.Web
+@using System.Linq;
+
+@inherits Umbraco.Web.Mvc.UmbracoTemplatePage
+@{
+  Layout = "Master.cshtml";
+
+  IPublishedContent productPage = Model.Content;
+
+  //Store id
+  long storeId = long.Parse( productPage.GetPropertyValue<string>( "store", true ) );
+
+  //Product data
+  var productName = productPage.GetPropertyValue<string>( "productName" );
+  var productDescription = new HtmlString( productPage.GetPropertyValue<string>( "description" ) );
+  var price = productPage.GetPropertyValue<string>( "priceDKK" );
+  decimal? stock = TC.GetStock( storeId, productPage.Id.ToString() );
+ 
+  //Product Images
+  List<IPublishedContent> productImages = productPage.GetPropertyValue<List<IPublishedContent>>( "image" );
+  
+  int count = 0;
+  string carouselId = "productCarousel";
+  
+  List<VariantPublishedContent> variants = TC.GetVariants( storeId, productPage, true ).ToList();
+
+  List<VariantGroup> attributeGroups = TC.GetVariantGroups( productPage, variants ).ToList();
+
+  string variantJson = TC.GetVariantJson( storeId, productPage, true );
+}
+
+<script type="text/javascript">
+  var _products = @Html.Raw( variantJson );
+</script>
+<div class="container productView">
+    <div class="row">
+        <div class="col-sm-8">
+            <div class="row">
+                <div class="col-xs-12" >
+                  <div class="productImages">
+                        @if ( productImages != null && productImages.Any() ) {
+                            <div id="@carouselId" class="product slide" data-ride="carousel">
+                        
+                                <!-- Indicators -->
+                                    <ol class="carousel-indicators">
+                                          @foreach ( IPublishedContent image in productImages ) {
+                                                <li data-target="#@carouselId" data-slide-to="@count" class="@(count == 0 ? "active" : "")"></li>
+                                                count++;
+                                          }
+                                    </ol>
+                            
+                                <!-- Wrapper for slides -->
+                                    <div class="carousel-inner" role="listbox">
+                                          @{
+                                          count = 0;
+                                              foreach ( IPublishedContent image in productImages ) {
+                                                    <div class="item @(count == 0 ? "active" : "")">
+                                                      <img src="@image.Url?width=1200&heightratio=0.5&mode=crop" alt="@image.Name">
+                                                    </div>
+                                                count++;
+                                              }
+                                         }
+                                     </div>
+                            </div>
+                        
+                        }
+                  </div>
+                  </div>
+              </div>
+                    <div class="well">
+                        <h1 class="page-header">@productName</h1>
+            
+                      @Html.Raw( productDescription )
+                      
+                    </div>
+              </div>
+
+            <div class="col-sm-4">
+                <div class="well">
+                    <h3>@productName</h3>
+                    <br />
+                    <h4>Pris: @price kr.</h4>
+                        @if( stock >= 0 ){
+                    <h5>Lagerstatus: @stock stk. på lager.</h5>
+                    }
+                    else    {
+                        <p>Varen er ikke på lager.</p>
+                    }
+                </div>
+            </div>
+            <div class="col-sm-4">
+                
+                <form method="post" action="/base/TC/FormPost.aspx" class="ajaxForm" data-product-id="@productPage.Id">
+                    <input name="AddOrUpdateOrderLine" value="productIdentifier, quantity" type="hidden" />
+                    <input name="storeId" value="@storeId" type="hidden" />
+                    
+                <div class="well">
+                    <div class="form-horizontal">
+                        @if ( attributeGroups.Any() ) {
+                                foreach ( VariantGroup variantGroup in attributeGroups ) {
+                                    <div class="form-group">
+                                        <label class="col-sm-3 control-label">@variantGroup.Name</label>
+                                            <div class="col-sm-9">
+                                                <select class="form-control" data-attribute-group="@variantGroup.Id">
+                                                <option value="">Vælg Variant</option>
+                                                    @foreach ( VariantType variantType in variantGroup.Attributes ) {
+                                                    <option value="@variantType.Id">@variantType.Name</option>
+                                                    }
+                                                </select>
+                                            </div>
+                                    </div>
+                                }
+                                
+                                <input name="productIdentifier" value="" type="hidden" />
+                            } 
+                            else {
+                                
+                                <input name="productIdentifier" value="@productPage.Id" type="hidden" />
+                            }
+                            
+                            <div class="form-group">
+                                <label class="col-sm-3 control-label">Antal</label>
+                                    <div class="col-sm-9">
+                                        <input class="form-control" name="quantity" value="1" type="text" />
+                                    </div>
+                            </div>
+                    </div>
+                    <input class="btn btn-primary btn-block disabled" value="Add to basket" type="submit" />
+                    </form>
+                </div>
+            </div>
+    </div>
+</div>
